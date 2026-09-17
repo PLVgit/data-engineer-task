@@ -1,0 +1,113 @@
+version: 2
+
+models:
+  - name: stg_hr_employees
+    description: Clean employee snapshot at one row per employee.
+    columns:
+      - name: employee_id
+        description: Stable employee identifier from the HR export.
+        data_tests:
+          - not_null
+          - unique
+      - name: first_name
+        description: Employee first name, trimmed of surrounding whitespace.
+        data_tests:
+          - not_null
+      - name: last_name
+        description: Employee last name, trimmed of surrounding whitespace.
+        data_tests:
+          - not_null
+      - name: email_address
+        description: Employee email address with surrounding whitespace removed.
+      - name: department
+        description: Department supplied by the HR export.
+      - name: job_title
+        description: Job title supplied by the HR export.
+      - name: date_of_hire
+        description: Hire date parsed from the HR export.
+      - name: termination_date
+        description: Termination date parsed from the HR export; null when not supplied.
+      - name: status
+        description: Lowercase HR employment status used for staffing eligibility.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [active, inactive]
+      - name: reports_to_employee_id
+        description: Employee identifier of the manager, when supplied.
+        data_tests:
+          - relationships:
+              arguments:
+                to: ref('stg_hr_employees')
+                field: employee_id
+      - name: _source_file
+        description: Filename of the source employee export.
+      - name: _source_row_number
+        description: One-based Excel row number in the source employee sheet.
+      - name: _source_snapshot_date
+        description: Snapshot date extracted from the source workbook's Generated metadata.
+
+  - name: stg_project_assignments
+    description: Clean project assignments at one row per assignment.
+    columns:
+      - name: assignment_id
+        description: Stable assignment identifier from the project export.
+        data_tests:
+          - not_null
+          - unique
+      - name: employee_id
+        description: Employee assigned to the project.
+        data_tests:
+          - not_null
+          - relationships:
+              arguments:
+                to: ref('stg_hr_employees')
+                field: employee_id
+      - name: project_code
+        description: Project identifier associated with the assignment.
+        data_tests:
+          - not_null
+      - name: project_name
+        description: Project name associated with the assignment.
+        data_tests:
+          - not_null
+      - name: assignment_role
+        description: Lowercase role assigned to the employee on this project.
+      - name: start_date
+        description: Assignment start date parsed from the project export.
+      - name: weekly_hours
+        description: Weekly hours allocated by this individual assignment.
+        data_tests:
+          - not_null
+      - name: is_billable
+        description: Boolean normalized from Y, Yes, N, or No.
+        data_tests:
+          - not_null
+          - accepted_values:
+              arguments:
+                values: [true, false]
+                quote: false
+      - name: _source_file
+        description: Filename of the source project assignment export.
+      - name: _source_row_number
+        description: One-based Excel row number in the source assignment sheet.
+      - name: _source_snapshot_date
+        description: Report date extracted from the source workbook's Report Date metadata.
+
+unit_tests:
+  - name: stg_project_assignments_maps_billable_values
+    model: stg_project_assignments
+    given:
+      - input: source('raw', 'project_assignments')
+        rows:
+          - {assignment_id: A1, billable_raw: 'Y'}
+          - {assignment_id: A2, billable_raw: 'Yes'}
+          - {assignment_id: A3, billable_raw: 'N'}
+          - {assignment_id: A4, billable_raw: 'No'}
+    expect:
+      rows:
+        - {assignment_id: A1, is_billable: true}
+        - {assignment_id: A2, is_billable: true}
+        - {assignment_id: A3, is_billable: false}
+        - {assignment_id: A4, is_billable: false}

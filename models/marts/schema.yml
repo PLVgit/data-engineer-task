@@ -1,0 +1,52 @@
+version: 2
+
+models:
+  - name: project_staffing
+    description: >-
+      One row per project with source-assigned leads and staffing metrics limited
+      to employees whose current HR status is active.
+    columns:
+      - name: project_code
+        description: Unique project identifier and grain of this model.
+        data_tests:
+          - not_null
+          - unique
+      - name: project_name
+        description: Project name associated consistently with the project code.
+        data_tests:
+          - not_null
+      - name: project_lead
+        description: >-
+          Semicolon-separated lead names ordered by employee ID; null when no
+          assignment is marked as lead. Leads are retained regardless of HR status.
+      - name: team_size
+        description: Count of distinct assigned employees with active HR status.
+        data_tests:
+          - not_null
+      - name: total_weekly_hours
+        description: Sum of weekly assignment hours for active employees only.
+        data_tests:
+          - not_null
+
+unit_tests:
+  - name: project_staffing_handles_leads_and_distinct_employees
+    model: project_staffing
+    given:
+      - input: ref('stg_hr_employees')
+        rows:
+          - {employee_id: EMP-002, first_name: Amy, last_name: Baker, status: active}
+          - {employee_id: EMP-001, first_name: Zoe, last_name: Adams, status: active}
+          - {employee_id: EMP-003, first_name: Ian, last_name: Clark, status: inactive}
+      - input: ref('stg_project_assignments')
+        rows:
+          - {assignment_id: A1, employee_id: EMP-002, project_code: P1, project_name: Shared leadership, assignment_role: lead, weekly_hours: 6}
+          - {assignment_id: A2, employee_id: EMP-001, project_code: P1, project_name: Shared leadership, assignment_role: lead, weekly_hours: 10}
+          - {assignment_id: A3, employee_id: EMP-001, project_code: P1, project_name: Shared leadership, assignment_role: contributor, weekly_hours: 4}
+          - {assignment_id: A4, employee_id: EMP-003, project_code: P2, project_name: Inactive staffing, assignment_role: lead, weekly_hours: 8}
+          - {assignment_id: A5, employee_id: EMP-001, project_code: P3, project_name: No lead, assignment_role: contributor, weekly_hours: 7}
+          - {assignment_id: A6, employee_id: EMP-003, project_code: P1, project_name: Shared leadership, assignment_role: contributor, weekly_hours: 12}
+    expect:
+      rows:
+        - {project_code: P1, project_name: Shared leadership, project_lead: 'Zoe Adams; Amy Baker', team_size: 2, total_weekly_hours: 20}
+        - {project_code: P2, project_name: Inactive staffing, project_lead: Ian Clark, team_size: 0, total_weekly_hours: 0}
+        - {project_code: P3, project_name: No lead, project_lead: null, team_size: 1, total_weekly_hours: 7}

@@ -1,0 +1,14 @@
+.git
+.gitignore
+.venv
+__pycache__
+*.py[cod]
+.pytest_cache
+.coverage
+htmlcov
+warehouse
+target
+logs
+dbt_packages
+.user.yml
+tests_python

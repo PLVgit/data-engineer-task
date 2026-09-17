@@ -1,0 +1,12 @@
+version: 2
+
+sources:
+  - name: raw
+    description: Excel export snapshots loaded without analytical business logic.
+    schema: raw
+    tables:
+      - name: hr_employees
+        description: Canonically named employee export rows loaded by Python.
+      - name: project_assignments
+        description: Canonically named project assignment export rows loaded by Python.
+
